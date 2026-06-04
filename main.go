@@ -16,6 +16,16 @@ const (
 	Bold        = "\033[1m"
 )
 
+type CertInfo struct {
+	Endpoint   string
+	CommonName string
+	Expires    string
+	Status     string
+	DaysLeft   int
+}
+
+var results []CertInfo
+
 func main() {
 	data, err := os.ReadFile("endpoints.list")
 	if err != nil {
@@ -30,13 +40,73 @@ func main() {
 	}
 
 	for _, endpoint := range endpoints {
-		endpoint = strings.TrimSpace(endpoint)
-		if endpoint == "" {
+		result, err := checkCertificate(endpoint)
+		if err != nil {
 			continue
 		}
-		checkCertificate(endpoint)
+
+		results = append(results, result)
 	}
 
+	endpointWidth := len("ENDPOINT")
+	commonNameWidth := len("COMMON NAME")
+	expiresWidth := len("EXPIRES")
+	statusWidth := len("STATUS")
+
+	for _, result := range results {
+		if len(result.Endpoint) > endpointWidth {
+			endpointWidth = len(result.Endpoint)
+		}
+
+		if len(result.CommonName) > commonNameWidth {
+			commonNameWidth = len(result.CommonName)
+		}
+
+		if len(result.Expires) > expiresWidth {
+			expiresWidth = len(result.Expires)
+		}
+
+		if len(result.Status) > statusWidth {
+			statusWidth = len(result.Status)
+		}
+	}
+
+	format := fmt.Sprintf(
+		"%%-%ds | %%-%ds | %%-%ds | %%-%ds\n",
+		endpointWidth,
+		commonNameWidth,
+		expiresWidth,
+		statusWidth,
+	)
+
+	fmt.Printf(
+		format,
+		"ENDPOINT",
+		"COMMON NAME",
+		"EXPIRES",
+		"STATUS",
+	)
+
+	for _, result := range results {
+		rowPrefix := ""
+		rowSuffix := ""
+
+		if result.DaysLeft < 15 {
+			rowPrefix = Bold + ColorRed
+			rowSuffix = ColorReset
+		} else if result.DaysLeft < 30 {
+			rowPrefix = Bold + ColorYellow
+			rowSuffix = ColorReset
+		}
+
+		fmt.Printf(
+			rowPrefix+format+rowSuffix,
+			result.Endpoint,
+			result.CommonName,
+			result.Expires,
+			result.Status,
+		)
+	}
 }
 
 func NormalizeEndpoints(endpoints []string) ([]string, error) {
@@ -56,11 +126,11 @@ func NormalizeEndpoints(endpoints []string) ([]string, error) {
 	return normalizedEndpoints, nil
 }
 
-func checkCertificate(endpoint string) {
+func checkCertificate(endpoint string) (CertInfo, error) {
 	host, _, err := net.SplitHostPort(endpoint)
 	if err != nil {
 		fmt.Printf("%s -> ERROR: invalid endpoint\n", endpoint)
-		return
+		return CertInfo{}, err
 	}
 
 	conn, err := tls.Dial("tcp", endpoint, &tls.Config{
@@ -68,35 +138,19 @@ func checkCertificate(endpoint string) {
 	})
 	if err != nil {
 		fmt.Printf("%s -> ERROR: %v\n", host, err)
-		return
+		return CertInfo{}, err
 	}
 	defer conn.Close()
 	cert := conn.ConnectionState().PeerCertificates[0]
 	daysRemaining := int(time.Until(cert.NotAfter).Hours() / 24)
 	status := fmt.Sprintf("%d days left", daysRemaining)
 
-	if daysRemaining < 15 {
-		status = fmt.Sprintf("%s%s%s%s",
-			Bold,
-			ColorRed,
-			status,
-			ColorReset,
-		)
-	} else if daysRemaining < 30 {
-		status = fmt.Sprintf("%s%s%s%s",
-			Bold,
-			ColorYellow,
-			status,
-			ColorReset,
-		)
-	}
-
-	fmt.Printf(
-		"%-25s | %-25s | %-12s | %s\n",
-		endpoint,
-		cert.Subject.CommonName,
-		cert.NotAfter.Format("2006-01-02"),
-		status,
-	)
+	return CertInfo{
+		Endpoint:   endpoint,
+		CommonName: cert.Subject.CommonName,
+		Expires:    cert.NotAfter.Format("2006-01-02"),
+		Status:     status,
+		DaysLeft:   daysRemaining,
+	}, nil
 
 }
