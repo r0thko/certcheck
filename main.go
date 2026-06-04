@@ -35,8 +35,14 @@ type CertInfo struct {
 	Severity   Severity
 }
 
+type EndpointError struct {
+	Endpoint string
+	Error    string
+}
+
 func main() {
 	var results []CertInfo
+	var errors []EndpointError
 
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: certcheck <endpoints-file>")
@@ -60,6 +66,10 @@ func main() {
 	for _, endpoint := range endpoints {
 		result, err := GetCertificateInfo(endpoint)
 		if err != nil {
+			errors = append(errors, EndpointError{
+				Endpoint: endpoint,
+				Error:    "host not found",
+			})
 			continue
 		}
 
@@ -67,6 +77,7 @@ func main() {
 	}
 
 	PrintResults(results)
+	PrintErrors(errors)
 }
 
 func LoadEndpoints(path string) ([]string, error) {
@@ -110,7 +121,7 @@ func GetCertificateInfo(endpoint string) (CertInfo, error) {
 		ServerName: host,
 	})
 	if err != nil {
-		fmt.Printf("%s -> ERROR: %v\n", host, err)
+		//fmt.Printf("%s -> ERROR: %v\n", host, err)
 		return CertInfo{}, err
 	}
 	defer conn.Close()
@@ -203,5 +214,19 @@ func PrintResults(results []CertInfo) {
 			result.Status,
 			result.Severity,
 		)
+	}
+}
+
+func PrintErrors(errors []EndpointError) {
+	if len(errors) == 0 {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("FAILED CHECKS")
+	fmt.Println("-------------")
+
+	for _, err := range errors {
+		fmt.Printf("%-30s | %s\n", err.Endpoint, err.Error)
 	}
 }
