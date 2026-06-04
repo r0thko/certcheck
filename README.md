@@ -7,6 +7,10 @@ A simple TLS certificate expiration checker written in Go.
 
 CertCheck reads a list of endpoints, retrieves their TLS certificates, and displays certificate details together with expiration status.
 
+## Screenshot
+
+![CertCheck Output](assets/certcheck-output.png)
+
 ## Features
 
 - Check TLS certificates for multiple endpoints
