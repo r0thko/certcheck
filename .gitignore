@@ -1,0 +1,10 @@
+# Binaries
+certcheck
+certcheck*
+*.exe
+
+# IDE
+.idea/
+
+# macOS
+.DS_Store
