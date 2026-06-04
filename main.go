@@ -89,7 +89,7 @@ func LoadEndpoints(path string) ([]string, error) {
 	return endpoints, nil
 }
 
-func NormalizeEndpoints(endpoints []string) ([]string, error) {
+func NormalizeEndpoints(endpoints []string) []string {
 	normalizedEndpoints := make([]string, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		if endpoint == "" {
@@ -107,13 +107,12 @@ func NormalizeEndpoints(endpoints []string) ([]string, error) {
 		}
 		normalizedEndpoints = append(normalizedEndpoints, endpoint)
 	}
-	return normalizedEndpoints, nil
+	return normalizedEndpoints
 }
 
 func GetCertificateInfo(endpoint string) (CertInfo, error) {
 	host, _, err := net.SplitHostPort(endpoint)
 	if err != nil {
-		fmt.Printf("%s -> ERROR: invalid endpoint\n", endpoint)
 		return CertInfo{}, err
 	}
 
