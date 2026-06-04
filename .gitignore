@@ -1,6 +1,5 @@
 # Binaries and related
-certcheck
-certcheck*
+/certcheck
 *.exe
 endpoints.list
 
