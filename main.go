@@ -10,10 +10,20 @@ import (
 )
 
 const (
-	ColorReset  = "\033[0m"
-	ColorRed    = "\033[31m"
-	ColorYellow = "\033[33m"
-	Bold        = "\033[1m"
+	ColorReset   = "\033[0m"
+	ColorRed     = "\033[31m"
+	ColorYellow  = "\033[33m"
+	Bold         = "\033[1m"
+	CriticalTime = 10
+	WarningTime  = 30
+)
+
+type Severity string
+
+const (
+	SeverityOK       Severity = ""
+	SeverityWarning  Severity = "WARNING"
+	SeverityCritical Severity = "CRITICAL"
 )
 
 type CertInfo struct {
@@ -22,6 +32,7 @@ type CertInfo struct {
 	Expires    string
 	Status     string
 	DaysLeft   int
+	Severity   Severity
 }
 
 var results []CertInfo
@@ -52,6 +63,7 @@ func main() {
 	commonNameWidth := len("COMMON NAME")
 	expiresWidth := len("EXPIRES")
 	statusWidth := len("STATUS")
+	remarkWidth := len("REMARK")
 
 	for _, result := range results {
 		if len(result.Endpoint) > endpointWidth {
@@ -69,14 +81,19 @@ func main() {
 		if len(result.Status) > statusWidth {
 			statusWidth = len(result.Status)
 		}
+
+		if len(result.Severity) > remarkWidth {
+			remarkWidth = len(result.Severity)
+		}
 	}
 
 	format := fmt.Sprintf(
-		"%%-%ds | %%-%ds | %%-%ds | %%-%ds\n",
+		"%%-%ds | %%-%ds | %%-%ds | %%-%ds | %%-%ds\n",
 		endpointWidth,
 		commonNameWidth,
 		expiresWidth,
 		statusWidth,
+		remarkWidth,
 	)
 
 	fmt.Printf(
@@ -85,18 +102,18 @@ func main() {
 		"COMMON NAME",
 		"EXPIRES",
 		"STATUS",
+		"REMARK",
 	)
 
 	for _, result := range results {
 		rowPrefix := ""
-		rowSuffix := ""
+		rowSuffix := ColorReset
 
-		if result.DaysLeft < 15 {
+		switch result.Severity {
+		case SeverityCritical:
 			rowPrefix = Bold + ColorRed
-			rowSuffix = ColorReset
-		} else if result.DaysLeft < 30 {
+		case SeverityWarning:
 			rowPrefix = Bold + ColorYellow
-			rowSuffix = ColorReset
 		}
 
 		fmt.Printf(
@@ -105,6 +122,7 @@ func main() {
 			result.CommonName,
 			result.Expires,
 			result.Status,
+			result.Severity,
 		)
 	}
 }
@@ -145,12 +163,21 @@ func checkCertificate(endpoint string) (CertInfo, error) {
 	daysRemaining := int(time.Until(cert.NotAfter).Hours() / 24)
 	status := fmt.Sprintf("%d days left", daysRemaining)
 
+	severity := SeverityOK
+
+	if daysRemaining < CriticalTime {
+		severity = SeverityCritical
+	} else if daysRemaining < WarningTime {
+		severity = SeverityWarning
+	}
+
 	return CertInfo{
 		Endpoint:   endpoint,
 		CommonName: cert.Subject.CommonName,
 		Expires:    cert.NotAfter.Format("2006-01-02"),
 		Status:     status,
 		DaysLeft:   daysRemaining,
+		Severity:   severity,
 	}, nil
 
 }
