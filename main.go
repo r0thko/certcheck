@@ -85,6 +85,10 @@ func NormalizeEndpoints(endpoints []string) ([]string, error) {
 			continue
 		}
 
+		if strings.HasPrefix(endpoint, "#") {
+			continue
+		}
+
 		endpoint = strings.TrimSpace(endpoint)
 
 		if !strings.Contains(endpoint, ":") {
