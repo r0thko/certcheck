@@ -7,3 +7,4 @@ github.com:443
 
 # Example internal service running TLS on a custom port
 your-internal-platform.example:6443
+google.com:8443

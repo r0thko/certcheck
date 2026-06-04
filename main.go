@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -10,12 +11,13 @@ import (
 )
 
 const (
-	ColorReset   = "\033[0m"
-	ColorRed     = "\033[31m"
-	ColorYellow  = "\033[33m"
-	Bold         = "\033[1m"
-	CriticalTime = 10
-	WarningTime  = 30
+	ColorReset        = "\033[0m"
+	ColorRed          = "\033[31m"
+	ColorYellow       = "\033[33m"
+	Bold              = "\033[1m"
+	CriticalTime      = 10
+	WarningTime       = 30
+	ConnectionTimeout = 3 * time.Second
 )
 
 type Severity string
@@ -57,7 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	endpoints, err = NormalizeEndpoints(endpoints)
+	endpoints = NormalizeEndpoints(endpoints)
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
@@ -68,7 +70,7 @@ func main() {
 		if err != nil {
 			errors = append(errors, EndpointError{
 				Endpoint: endpoint,
-				Error:    "host not found",
+				Error:    ClassifyError(err),
 			})
 			continue
 		}
@@ -116,13 +118,22 @@ func GetCertificateInfo(endpoint string) (CertInfo, error) {
 		return CertInfo{}, err
 	}
 
-	conn, err := tls.Dial("tcp", endpoint, &tls.Config{
-		ServerName: host,
-	})
+	dialer := &net.Dialer{
+		Timeout: ConnectionTimeout,
+	}
+
+	conn, err := tls.DialWithDialer(
+		dialer,
+		"tcp",
+		endpoint,
+		&tls.Config{
+			ServerName: host,
+		},
+	)
 	if err != nil {
-		//fmt.Printf("%s -> ERROR: %v\n", host, err)
 		return CertInfo{}, err
 	}
+
 	defer conn.Close()
 	cert := conn.ConnectionState().PeerCertificates[0]
 	daysRemaining := int(time.Until(cert.NotAfter).Hours() / 24)
@@ -221,11 +232,52 @@ func PrintErrors(errors []EndpointError) {
 		return
 	}
 
+	endpointWidth := len("ENDPOINT")
+	errorWidth := len("ERROR")
+
+	for _, err := range errors {
+		if len(err.Endpoint) > endpointWidth {
+			endpointWidth = len(err.Endpoint)
+		}
+
+		if len(err.Error) > errorWidth {
+			errorWidth = len(err.Error)
+		}
+	}
+	format := fmt.Sprintf(
+		"%%-%ds | %%-%ds\n",
+		endpointWidth,
+		errorWidth,
+	)
 	fmt.Println()
 	fmt.Println("FAILED CHECKS")
 	fmt.Println("-------------")
 
+	fmt.Printf(
+		format,
+		"ENDPOINT",
+		"ERROR",
+	)
+
 	for _, err := range errors {
-		fmt.Printf("%-30s | %s\n", err.Endpoint, err.Error)
+		fmt.Printf(
+			format,
+			err.Endpoint,
+			err.Error,
+		)
 	}
+}
+
+func ClassifyError(err error) string {
+	var dnsErr *net.DNSError
+
+	if errors.As(err, &dnsErr) {
+		return "host not found"
+	}
+
+	if ne, ok := err.(net.Error); ok && ne.Timeout() {
+		return "connection timeout"
+	}
+
+	return err.Error()
 }

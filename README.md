@@ -9,13 +9,16 @@ CertCheck reads a list of endpoints, retrieves their TLS certificates, and displ
 - Check TLS certificates for multiple endpoints
 - Supports both implicit and explicit ports
 - Defaults to port `443` when no port is specified
+- Ignores blank lines and comments (`#`)
 - Displays:
-    - Endpoint
-    - Certificate Common Name (CN)
-    - Expiration date
-    - Days remaining
-    - Warning status
+  - Endpoint
+  - Certificate Common Name (CN)
+  - Expiration date
+  - Days remaining
+  - Expiration severity
 - Highlights certificates approaching expiration
+- Reports failed checks in a dedicated table
+- Classifies common connection errors
 - Dynamic table formatting based on content width
 - Command-line argument support for endpoint files
 
@@ -24,7 +27,7 @@ CertCheck reads a list of endpoints, retrieves their TLS certificates, and displ
 Clone the repository:
 
 ```bash
-git clone git@github.com:r0thko/certcheck.git
+git clone https://github.com/r0thko/certcheck.git
 cd certcheck
 ```
 
@@ -36,41 +39,38 @@ go build -o certcheck
 
 ## Usage
 
-Create an endpoints file:
-
-```text
-google.com
-sff.pl
-gobyexample.com
-internal-api.company.com:8443
-```
-
-Run:
+Run CertCheck and provide an endpoints file:
 
 ```bash
-./certcheck endpoints.list
+./certcheck endpoints.example.list
 ```
 
-Example output:
+You can also use your own file:
 
-```text
-ENDPOINT            | COMMON NAME     | EXPIRES    | STATUS        | REMARK
-sowinski.st:443     | sowinski.st     | 2026-07-28 | 53 days left  |
-google.com:443      | *.google.com    | 2026-08-10 | 67 days left  |
-sff.pl:443          | sff.pl          | 2026-06-25 | 20 days left  | WARNING
-gobyexample.com:443 | gobyexample.com | 2027-01-17 | 227 days left |
+```bash
+./certcheck production.list
 ```
 
 ## Endpoint Format
 
+Lines beginning with `#` are treated as comments and ignored.
+
 Endpoints may be specified with or without a port.
 
-Examples:
+Example:
 
 ```text
-google.com
-sff.pl
-example.com:8443
+# Standard HTTPS endpoint
+stackoverflow.com
+
+# Explicit HTTPS port
+github.com:443
+
+# Example endpoint with a custom TLS port
+google.com:8443
+
+# Example internal service running TLS on a custom port
+your-internal-platform.example:6443
 ```
 
 When no port is specified, CertCheck automatically uses:
@@ -79,13 +79,28 @@ When no port is specified, CertCheck automatically uses:
 443
 ```
 
+## Example Output
+
+```text
+ENDPOINT              | COMMON NAME       | EXPIRES    | STATUS       | REMARK
+stackoverflow.com:443 | stackoverflow.com | 2026-07-18 | 43 days left |
+sff.pl:443            | sff.pl            | 2026-06-25 | 20 days left | WARNING
+github.com:443        | github.com        | 2026-08-02 | 59 days left |
+
+FAILED CHECKS
+-------------
+ENDPOINT                            | ERROR
+google.com:8443                     | connection timeout
+your-internal-platform.example:6443 | host not found
+```
+
 ## Warning Levels
 
 Current thresholds:
 
 | Severity | Days Remaining |
-|-----------|----------------|
-| WARNING | Less than 30 days |
+|----------|-----------------|
+| WARNING  | Less than 30 days |
 | CRITICAL | Less than 15 days |
 
 These values can be adjusted in the source code:
@@ -97,25 +112,24 @@ const (
 )
 ```
 
-## Project Goals
+## Error Handling
 
-This project was created as a practical Go learning project while exploring:
+Endpoints that cannot be checked are reported separately under the `FAILED CHECKS` section.
 
-- File I/O
-- Structs and custom types
-- Error handling
-- TLS certificate inspection
-- Terminal output formatting
-- Command-line applications
-- Git and GitHub workflows
+Current error classifications include:
+
+- Host not found (DNS resolution failure)
+- Connection timeout
+
+Additional classifications may be added in future releases.
 
 ## Roadmap
 
 - [ ] Concurrent certificate checks using goroutines
 - [ ] JSON output
 - [ ] Configurable warning thresholds
+- [ ] Better error classification
 - [ ] Exit codes for monitoring integrations
-- [ ] Export results to files
 - [ ] Unit tests
 
 ## License
