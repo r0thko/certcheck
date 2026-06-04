@@ -1,7 +1,8 @@
-# Binaries
+# Binaries and related
 certcheck
 certcheck*
 *.exe
+endpoints.list
 
 # IDE
 .idea/
