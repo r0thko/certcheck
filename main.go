@@ -44,7 +44,7 @@ type EndpointError struct {
 
 func main() {
 	var results []CertInfo
-	var errors []EndpointError
+	var endpointErrors []EndpointError
 
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: certcheck <endpoints-file>")
@@ -68,7 +68,7 @@ func main() {
 	for _, endpoint := range endpoints {
 		result, err := GetCertificateInfo(endpoint)
 		if err != nil {
-			errors = append(errors, EndpointError{
+			endpointErrors = append(endpointErrors, EndpointError{
 				Endpoint: endpoint,
 				Error:    ClassifyError(err),
 			})
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	PrintResults(results)
-	PrintErrors(errors)
+	PrintErrors(endpointErrors)
 }
 
 func LoadEndpoints(path string) ([]string, error) {
@@ -94,6 +94,8 @@ func LoadEndpoints(path string) ([]string, error) {
 func NormalizeEndpoints(endpoints []string) []string {
 	normalizedEndpoints := make([]string, 0, len(endpoints))
 	for _, endpoint := range endpoints {
+		endpoint = strings.TrimSpace(endpoint)
+
 		if endpoint == "" {
 			continue
 		}
@@ -101,8 +103,6 @@ func NormalizeEndpoints(endpoints []string) []string {
 		if strings.HasPrefix(endpoint, "#") {
 			continue
 		}
-
-		endpoint = strings.TrimSpace(endpoint)
 
 		if !strings.Contains(endpoint, ":") {
 			endpoint += ":443"
