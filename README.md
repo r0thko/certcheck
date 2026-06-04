@@ -1,4 +1,7 @@
 # CertCheck
+![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)
+![License](https://img.shields.io/github/license/r0thko/certcheck)
+![Last Commit](https://img.shields.io/github/last-commit/r0thko/certcheck)
 
 A simple TLS certificate expiration checker written in Go.
 
