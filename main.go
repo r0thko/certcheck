@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/r0thko/certcheck/notifications"
 )
 
 const (
@@ -53,6 +55,25 @@ func main() {
 
 	file := os.Args[1]
 
+	var telegramConfig notifications.TelegramConfig
+	var err error
+
+	for _, arg := range os.Args[2:] {
+
+		if strings.HasPrefix(arg, "--telegram=") {
+			value := strings.TrimPrefix(
+				arg,
+				"--telegram=",
+			)
+
+			telegramConfig, err = notifications.ParseTelegramArg(value)
+			if err != nil {
+				fmt.Println("Error:", err)
+				os.Exit(1)
+			}
+		}
+	}
+
 	endpoints, err := LoadEndpoints(file)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -80,6 +101,8 @@ func main() {
 
 	PrintResults(results)
 	PrintErrors(endpointErrors)
+
+	NotifyTelegram(telegramConfig, results)
 }
 
 func LoadEndpoints(path string) ([]string, error) {
@@ -280,4 +303,42 @@ func ClassifyError(err error) string {
 	}
 
 	return err.Error()
+}
+
+func BuildTelegramMessage(results []CertInfo) string {
+	var b strings.Builder
+
+	b.WriteString("⚠️ CertCheck Alert\n\n")
+
+	for _, result := range results {
+		if result.Severity == SeverityCritical || result.Severity == SeverityWarning {
+			fmt.Fprintf(
+				&b,
+				"%s - %d days left (%s)\n",
+				result.Endpoint,
+				result.DaysLeft,
+				result.Severity,
+			)
+		}
+	}
+
+	return b.String()
+}
+
+func NotifyTelegram(telegramConfig notifications.TelegramConfig, results []CertInfo) {
+	if telegramConfig.Token != "" &&
+		telegramConfig.ChatID != "" {
+
+		telegramMessage := BuildTelegramMessage(results)
+
+		err := notifications.SendTelegramMessage(
+			telegramConfig.Token,
+			telegramConfig.ChatID,
+			telegramMessage,
+		)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
