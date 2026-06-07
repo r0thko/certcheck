@@ -39,8 +39,9 @@ func SendTelegramMessage(
 	resp, err := http.PostForm(
 		endpoint,
 		url.Values{
-			"chat_id": {chatID},
-			"text":    {message},
+			"chat_id":    {chatID},
+			"text":       {message},
+			"parse_mode": {"Markdown"},
 		},
 	)
 	if err != nil {

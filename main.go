@@ -308,18 +308,20 @@ func ClassifyError(err error) string {
 func BuildTelegramMessage(results []CertInfo) string {
 	var b strings.Builder
 
-	b.WriteString("⚠️ CertCheck Alert\n\n")
+	b.WriteString("⚠️ *CertCheck Alert*\n\n")
 
 	for _, result := range results {
-		if result.Severity == SeverityCritical || result.Severity == SeverityWarning {
-			fmt.Fprintf(
-				&b,
-				"%s - %d days left (%s)\n",
-				result.Endpoint,
-				result.DaysLeft,
-				result.Severity,
-			)
+		if result.Severity == SeverityOK {
+			continue
 		}
+
+		fmt.Fprintf(
+			&b,
+			"*%s*\n`%s` - %d days left\n\n",
+			result.Severity,
+			result.Endpoint,
+			result.DaysLeft,
+		)
 	}
 
 	return b.String()
